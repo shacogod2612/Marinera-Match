@@ -2,14 +2,14 @@
 export const bailarines = [
   {
     id: 1,
-    nombre: "Alex",
-    edad: 23,
+    nombre: "Alex Donet",
+    edad: 31,
     ciudad: "Lima",
-    nivel: "Intermedio",
+    nivel: "Campeón de Campeones / Laureado",
     objetivo: "Concursos",
     descripcion:
       "Busco una pareja para entrenar, mejorar la técnica y prepararnos para nuevos retos.",
-    imagen: "/images/bailarin-1.jpg",
+    imagen: "/img/alex.jfif",
   },
   {
     id: 2,
@@ -20,7 +20,7 @@ export const bailarines = [
     objetivo: "Práctica",
     descripcion:
       "Me encanta la marinera y quiero compartir entrenamientos con una pareja comprometida.",
-    imagen: "/images/bailarina-1.jpg",
+    imagen: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800",
   },
   {
     id: 3,
@@ -31,6 +31,6 @@ export const bailarines = [
     objetivo: "Concursos",
     descripcion:
       "Busco una compañera con ganas de entrenar y participar en competencias.",
-    imagen: "/images/bailarin-2.jpg",
+    imagen: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800",
   },
 ];
