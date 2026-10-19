@@ -15,19 +15,24 @@ function ProfileCard({ bailarín }) {
       <div className="p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-serif text-3xl font-bold text-[#581f2b]">
-            {bailarín.nombre}, {bailarín.edad}
+            {bailarín.nombre}, {bailarín.edad}, 
           </h2>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          {[bailarín.nivel, bailarín.objetivo].map((etiqueta) => (
-            <span
-              key={etiqueta}
-              className="rounded-full border border-[#e4d3bd] px-3 py-1.5 text-xs font-semibold text-[#581f2b]"
-            >
-              {etiqueta}
-            </span>
-          ))}
+            {[
+              bailarín.sexo,
+              bailarín.nivel,
+              bailarín.objetivo,
+              bailarín.academia,
+            ].map((etiqueta) => (
+              <span
+                key={etiqueta}
+                className="rounded-full border border-[#e4d3bd] px-3 py-1.5 text-xs font-semibold text-[#581f2b]"
+              >
+                {etiqueta}
+              </span>
+            ))}
         </div>
 
         <p className="mt-4 flex items-center gap-2 text-sm text-stone-500">
@@ -38,6 +43,10 @@ function ProfileCard({ bailarín }) {
         <p className="mt-4 leading-7 text-stone-700">
           {bailarín.descripcion}
         </p>
+
+          <h3 className="mt-4 leading-7 text-[#581f2b]">
+          Academia: {bailarín.academia}
+        </h3>
       </div>
     </article>
   );
