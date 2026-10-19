@@ -18,6 +18,8 @@ const filtrosIniciales = {
   nivel: "Todos",
   objetivo: "Todos",
   academia: "Todas",
+  edadMinima: "",
+  edadMaxima: "",
 };
 
 function Discover() {
@@ -41,20 +43,24 @@ function Discover() {
     ),
   ];
 
-  const perfilesFiltrados = bailarines.filter((bailarin) => {
-    return (
-      (filtros.sexo === "Todos" ||
-        bailarin.sexo === filtros.sexo) &&
-      (filtros.ciudad === "Todas" ||
-        bailarin.ciudad === filtros.ciudad) &&
-      (filtros.nivel === "Todos" ||
-        bailarin.nivel === filtros.nivel) &&
-      (filtros.objetivo === "Todos" ||
-        bailarin.objetivo === filtros.objetivo) &&
-      (filtros.academia === "Todas" ||
-        bailarin.academia === filtros.academia)
-    );
-  });
+const perfilesFiltrados = bailarines.filter((bailarin) => {
+  return (
+    (filtros.sexo === "Todos" ||
+      bailarin.sexo === filtros.sexo) &&
+    (filtros.ciudad === "Todas" ||
+      bailarin.ciudad === filtros.ciudad) &&
+    (filtros.nivel === "Todos" ||
+      bailarin.nivel === filtros.nivel) &&
+    (filtros.objetivo === "Todos" ||
+      bailarin.objetivo === filtros.objetivo) &&
+    (filtros.academia === "Todas" ||
+      bailarin.academia === filtros.academia) &&
+    (filtros.edadMinima === "" ||
+      bailarin.edad >= Number(filtros.edadMinima)) &&
+    (filtros.edadMaxima === "" ||
+      bailarin.edad <= Number(filtros.edadMaxima))
+  );
+});
 
   const perfilesDisponibles = perfilesFiltrados.filter(
     (bailarin) => !vistos.includes(bailarin.id)
@@ -200,6 +206,33 @@ function Discover() {
                 opciones={academias}
               />
             </div>
+            <label className="block text-sm font-medium text-stone-700">
+              Edad mínima
+              <input
+                type="number"
+                min="1"
+                placeholder="Ej. 18"
+                value={filtros.edadMinima}
+                onChange={(e) =>
+                  actualizarFiltro("edadMinima", e.target.value)
+                }
+                className={clasesSelect}
+              />
+            </label>
+
+            <label className="block text-sm font-medium text-stone-700">
+              Edad máxima
+              <input
+                type="number"
+                min="1"
+                placeholder="Ej. 35"
+                value={filtros.edadMaxima}
+                onChange={(e) =>
+                  actualizarFiltro("edadMaxima", e.target.value)
+                }
+                className={clasesSelect}
+              />
+            </label>
           </div>
 
           <button
