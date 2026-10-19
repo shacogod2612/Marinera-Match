@@ -22,10 +22,9 @@ const filtrosIniciales = {
   edadMaxima: "",
 };
 
-function Discover() {
+function Discover({ likes, setLikes }) {
   const [filtros, setFiltros] = useState(filtrosIniciales);
   const [vistos, setVistos] = useState([]);
-  const [likes, setLikes] = useState([]);
   const [destacados, setDestacados] = useState([]);
 
   // Obtenemos las opciones directamente de los datos.
@@ -136,7 +135,6 @@ function Discover() {
   function reiniciarBusqueda() {
     setFiltros(filtrosIniciales);
     setVistos([]);
-    setLikes([]);
     setDestacados([]);
   }
 

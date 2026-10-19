@@ -7,6 +7,7 @@ const enlaces = [
   { to: "/descubrir", label: "Descubrir" },
   { to: "/matches", label: "Matches" },
   { to: "/perfil", label: "Mi perfil" },
+  { to: "/favoritos", label: "Favoritos" },
 ];
 
 function Navbar() {

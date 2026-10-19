@@ -1,19 +1,41 @@
 
+import { useState } from "react";
 import { Routes, Route } from "react-router-dom";
+
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Discover from "./pages/Discover";
 import Matches from "./pages/Matches";
 import Profile from "./pages/Profile";
+import Favorites from "./pages/Favorites";
 
 function App() {
+  const [likes, setLikes] = useState([]);
+
   return (
     <div className="min-h-screen bg-[#f7f0e5]">
       <Navbar />
 
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/descubrir" element={<Discover />} />
+
+        <Route
+          path="/descubrir"
+          element={
+            <Discover
+              likes={likes}
+              setLikes={setLikes}
+            />
+          }
+        />
+
+        <Route
+          path="/favoritos"
+          element={
+            <Favorites likes={likes} setLikes={setLikes} />
+          }
+        />
+
         <Route path="/matches" element={<Matches />} />
         <Route path="/perfil" element={<Profile />} />
       </Routes>
