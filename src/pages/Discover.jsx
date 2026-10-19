@@ -42,9 +42,33 @@ function Discover() {
         .filter(Boolean)
     ),
   ];
+  const edadMinima =
+  filtros.edadMinima === "" ? null : Number(filtros.edadMinima);
 
-const perfilesFiltrados = bailarines.filter((bailarin) => {
-  return (
+  const edadMaxima =
+    filtros.edadMaxima === "" ? null : Number(filtros.edadMaxima);
+
+  let errorEdad = "";
+
+  if (edadMinima !== null && (!Number.isInteger(edadMinima) || edadMinima < 1)) {
+    errorEdad = "La edad mínima debe ser un número entero mayor que 0.";
+  } else if (
+    edadMaxima !== null &&
+    (!Number.isInteger(edadMaxima) || edadMaxima < 1)
+  ) {
+    errorEdad = "La edad máxima debe ser un número entero mayor que 0.";
+  } else if (
+    edadMinima !== null &&
+    edadMaxima !== null &&
+    edadMinima > edadMaxima
+  ) {
+    errorEdad = "La edad mínima no puede ser mayor que la edad máxima.";
+  }
+
+  const perfilesFiltrados = errorEdad
+    ? []
+    : bailarines.filter((bailarin) => {
+      return (
     (filtros.sexo === "Todos" ||
       bailarin.sexo === filtros.sexo) &&
     (filtros.ciudad === "Todas" ||
@@ -243,6 +267,15 @@ const perfilesFiltrados = bailarines.filter((bailarin) => {
             Limpiar filtros
           </button>
         </section>
+
+        {errorEdad && (
+          <p
+            role="alert"
+            className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800"
+          >
+            {errorEdad}
+          </p>
+        )}
 
         <p className="mb-4 text-center text-sm text-stone-500">
           {perfilesDisponibles.length} perfiles disponibles
