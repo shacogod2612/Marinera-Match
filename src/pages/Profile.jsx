@@ -46,7 +46,7 @@ const extensionesImagen = {
 const MAX_FOTOS = 6;
 const MAX_TAMANO = 5 * 1024 * 1024;
 
-function Profile() {
+function Profile({ onFotoPerfilChange }) {
   const [perfil, setPerfil] = useState(perfilInicial);
   const [perfilGuardado, setPerfilGuardado] = useState(perfilInicial);
 
@@ -172,6 +172,7 @@ function Profile() {
           setPerfil(perfilCargado);
           setPerfilGuardado(perfilCargado);
           setFotoUrl(data.foto_url ?? "");
+          onFotoPerfilChange(data.foto_url ?? null);
           setExistePerfil(true);
           setEditando(false);
           setMensaje("");
@@ -336,6 +337,7 @@ function Profile() {
       setPerfilGuardado(perfilActualizado);
       setExistePerfil(true);
       setEditando(false);
+      onFotoPerfilChange(fotoUrl || null);
       setMensaje("¡Tu perfil se guardó correctamente!");
       setTipoMensaje("exito");
     } catch (error) {
@@ -433,6 +435,7 @@ function Profile() {
           }
 
           setFotoUrl(urlData.publicUrl);
+          onFotoPerfilChange(urlData.publicUrl);
         }
       }
 
@@ -494,6 +497,7 @@ function Profile() {
       if (errorPerfil) throw errorPerfil;
 
       setFotoUrl(foto.foto_url);
+      onFotoPerfilChange(foto.foto_url);
       await cargarGaleria(usuarioId, foto.foto_url);
       setMensaje("¡Foto principal actualizada!");
       setTipoMensaje("exito");
@@ -570,6 +574,7 @@ function Profile() {
           }));
 
           setFotoUrl(siguiente.foto_url);
+          onFotoPerfilChange(siguiente.foto_url);
         } else {
           const { error: errorPerfil } = await supabase
             .from("profiles")
@@ -579,6 +584,7 @@ function Profile() {
           if (errorPerfil) throw errorPerfil;
 
           setFotoUrl("");
+          onFotoPerfilChange(null);
         }
       }
 

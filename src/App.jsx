@@ -13,10 +13,14 @@ import Chat from "./pages/Chat";
 
 function App() {
   const [likes, setLikes] = useState([]);
+  const [fotoPerfil, setFotoPerfil] = useState(null);
 
   return (
-    <div className="min-h-screen bg-[#f7f0e5]">
-      <Navbar />
+    <div className="min-h-screen bg-[#f7f0e5] pb-20 md:pb-0">
+      <Navbar
+        fotoPerfil={fotoPerfil}
+        setFotoPerfil={setFotoPerfil}
+      />
 
       <Routes>
         <Route path="/" element={<Home />} />
@@ -34,12 +38,24 @@ function App() {
         <Route
           path="/favoritos"
           element={
-            <Favorites likes={likes} setLikes={setLikes} />
+            <Favorites
+              likes={likes}
+              setLikes={setLikes}
+            />
           }
         />
 
         <Route path="/matches" element={<Matches />} />
-        <Route path="/perfil" element={<Profile />} />
+
+        <Route
+          path="/perfil"
+          element={
+            <Profile
+              onFotoPerfilChange={setFotoPerfil}
+            />
+          }
+        />
+
         <Route path="/acceso" element={<Auth />} />
         <Route path="/chat/:conversationId" element={<Chat />} />
       </Routes>

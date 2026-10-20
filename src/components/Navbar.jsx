@@ -2,12 +2,17 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
-  Heart,
   Bell,
+  Heart,
   HeartHandshake,
   MessageCircle,
   Check,
   LoaderCircle,
+  UserRound,
+  House,
+  Compass,
+  Sparkles,
+  LogOut,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 
@@ -15,11 +20,28 @@ const enlaces = [
   { to: "/", label: "Inicio", end: true },
   { to: "/descubrir", label: "Descubrir" },
   { to: "/matches", label: "Matches" },
-  { to: "/perfil", label: "Mi perfil" },
-  { to: "/favoritos", label: "Favoritos" },
 ];
 
-function Navbar() {
+const enlacesMoviles = [
+  {
+    to: "/",
+    label: "Inicio",
+    icon: House,
+    end: true,
+  },
+  {
+    to: "/descubrir",
+    label: "Descubrir",
+    icon: Compass,
+  },
+  {
+    to: "/matches",
+    label: "Matches",
+    icon: Sparkles,
+  },
+];
+
+function Navbar({ fotoPerfil, setFotoPerfil }) {
   const navigate = useNavigate();
 
   const [notificaciones, setNotificaciones] = useState([]);
@@ -31,6 +53,60 @@ function Navbar() {
 
   const noLeidas = notificaciones.filter((n) => !n.read_at).length;
 
+  // Cerrar sesión de Supabase y volver a la página de acceso.
+  async function cerrarSesion() {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error("Error al cerrar sesión:", error.message);
+      setErrorNotificaciones(
+        "No se pudo cerrar la sesión. Inténtalo nuevamente."
+      );
+      return;
+    }
+
+    setMostrarNotificaciones(false);
+    setNotificaciones([]);
+    setUsuarioId(null);
+    setFotoPerfil(null);
+
+    navigate("/login", { replace: true });
+  }
+
+  // Cargar la foto del perfil del usuario autenticado.
+  useEffect(() => {
+    let activo = true;
+
+    async function cargarFotoPerfil() {
+      if (!usuarioId) {
+        setFotoPerfil(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("foto_url")
+        .eq("id", usuarioId)
+        .maybeSingle();
+
+      if (!activo) return;
+
+      if (error) {
+        console.error("Error cargando foto de perfil:", error);
+        return;
+      }
+
+      setFotoPerfil(data?.foto_url ?? null);
+    }
+
+    cargarFotoPerfil();
+
+    return () => {
+      activo = false;
+    };
+  }, [usuarioId, setFotoPerfil]);
+
+  // Cargar notificaciones y escuchar cambios en tiempo real.
   useEffect(() => {
     let activo = true;
     let canal = null;
@@ -119,7 +195,6 @@ function Navbar() {
         return;
       }
 
-      // Evitar crear un canal duplicado para el mismo usuario.
       if (usuarioActualId === user.id && canal) return;
 
       if (canal) {
@@ -154,7 +229,6 @@ function Navbar() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      // Dejar que termine el evento de autenticación antes de consultar.
       setTimeout(() => {
         if (activo) iniciarNotificaciones();
       }, 0);
@@ -177,7 +251,6 @@ function Navbar() {
     setAbriendoNotificacion(notificacion.id);
 
     try {
-      // Marcar como leída.
       if (!notificacion.read_at && usuarioId) {
         const ahora = new Date().toISOString();
 
@@ -196,7 +269,6 @@ function Navbar() {
         );
       }
 
-      // Si es un mensaje, abrir la conversación correspondiente.
       if (notificacion.type === "message") {
         if (!notificacion.related_message_id) {
           setErrorNotificaciones(
@@ -222,7 +294,6 @@ function Navbar() {
         return;
       }
 
-      // Si es un match, llevar a la sección de matches.
       if (notificacion.type === "match") {
         navigate("/matches");
       }
@@ -277,228 +348,284 @@ function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[#e8ddcd] bg-[#f7f0e5]/95 backdrop-blur">
-      <div className="relative mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-5">
-        <Link to="/" className="flex shrink-0 items-center gap-3">
-          <span className="grid size-11 place-items-center rounded-xl bg-[#581f2b] font-serif text-lg font-bold text-[#d6a64f]">
-            EP
-          </span>
+    <>
+      <header className="sticky top-0 z-50 border-b border-[#e8ddcd] bg-[#f7f0e5]/95 backdrop-blur">
+        <div className="relative mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-5">
+          {/* Logo */}
+          <Link to="/" className="flex shrink-0 items-center gap-3">
+            <span className="grid size-11 place-items-center rounded-xl bg-[#581f2b] font-serif text-lg font-bold text-[#d6a64f]">
+              EP
+            </span>
 
-          <span className="font-serif text-lg font-bold text-[#581f2b] sm:text-xl">
-            Marinera Match
-          </span>
-        </Link>
+            <span className="font-serif text-lg font-bold text-[#581f2b] sm:text-xl">
+              Marinera Match
+            </span>
+          </Link>
 
-        <nav className="hidden items-center gap-6 md:flex">
-          {enlaces.map((enlace) => (
-            <NavLink
-              key={enlace.to}
-              to={enlace.to}
-              end={enlace.end}
-              className={({ isActive }) =>
-                `text-sm font-medium transition-colors ${
-                  isActive
-                    ? "text-[#581f2b]"
-                    : "text-stone-600 hover:text-[#581f2b]"
-                }`
-              }
+          {/* Navegación de escritorio */}
+          <nav className="hidden items-center gap-6 md:flex">
+            {enlaces.map((enlace) => (
+              <NavLink
+                key={enlace.to}
+                to={enlace.to}
+                end={enlace.end}
+                className={({ isActive }) =>
+                  `text-sm font-medium transition-colors ${
+                    isActive
+                      ? "text-[#581f2b]"
+                      : "text-stone-600 hover:text-[#581f2b]"
+                  }`
+                }
+              >
+                {enlace.label}
+              </NavLink>
+            ))}
+          </nav>
+
+          {/* Acciones del usuario */}
+          <div className="flex shrink-0 items-center gap-2">
+            {/* Notificaciones */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setMostrarNotificaciones((anterior) => !anterior);
+                  setErrorNotificaciones("");
+                }}
+                aria-label={`Notificaciones${
+                  noLeidas ? `, ${noLeidas} sin leer` : ""
+                }`}
+                aria-expanded={mostrarNotificaciones}
+                className="relative grid size-11 place-items-center rounded-full border border-[#e8ddcd] bg-[#fffaf2] text-[#581f2b] transition hover:bg-[#f0e4d3]"
+              >
+                <Bell size={21} />
+
+                {noLeidas > 0 && (
+                  <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+                    {noLeidas > 99 ? "99+" : noLeidas}
+                  </span>
+                )}
+              </button>
+
+              {/* Panel de notificaciones */}
+              {mostrarNotificaciones && (
+                <div className="absolute right-0 top-full z-[60] mt-3 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-[#e8ddcd] bg-[#fffaf2] shadow-xl">
+                  <div className="flex items-center justify-between gap-3 border-b border-[#e8ddcd] px-4 py-3">
+                    <div>
+                      <h2 className="font-serif font-bold text-[#581f2b]">
+                        Notificaciones
+                      </h2>
+                      <p className="text-xs text-stone-500">
+                        {noLeidas > 0
+                          ? `${noLeidas} sin leer`
+                          : "Estás al día"}
+                      </p>
+                    </div>
+
+                    {noLeidas > 0 && (
+                      <button
+                        type="button"
+                        onClick={marcarTodasLeidas}
+                        className="flex items-center gap-1 text-xs font-semibold text-[#581f2b] hover:underline"
+                      >
+                        <Check size={15} />
+                        Marcar leídas
+                      </button>
+                    )}
+                  </div>
+
+                  {errorNotificaciones && (
+                    <p
+                      role="alert"
+                      className="border-b border-[#eee4d6] bg-red-50 p-3 text-sm text-red-700"
+                    >
+                      {errorNotificaciones}
+                    </p>
+                  )}
+
+                  {cargandoNotificaciones ? (
+                    <div className="flex items-center justify-center gap-2 p-8 text-sm text-stone-500">
+                      <LoaderCircle size={19} className="animate-spin" />
+                      Cargando...
+                    </div>
+                  ) : notificaciones.length === 0 ? (
+                    <div className="px-5 py-8 text-center">
+                      <Bell size={30} className="mx-auto text-[#b18432]" />
+
+                      <p className="mt-3 font-semibold text-[#581f2b]">
+                        Aún no tienes notificaciones
+                      </p>
+
+                      <p className="mt-1 text-sm text-stone-500">
+                        Cuando hagas match o recibas un mensaje, te avisaremos
+                        aquí.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="max-h-[380px] overflow-y-auto">
+                      {notificaciones.map((n) => {
+                        const texto = obtenerTextoNotificacion(n);
+                        const esMensaje = n.type === "message";
+                        const abriendo = abriendoNotificacion === n.id;
+
+                        return (
+                          <button
+                            key={n.id}
+                            type="button"
+                            disabled={abriendo}
+                            onClick={() => abrirNotificacion(n)}
+                            className={`flex w-full items-start gap-3 border-b border-[#eee4d6] px-4 py-4 text-left transition hover:bg-[#f7f0e5] disabled:opacity-60 ${
+                              !n.read_at ? "bg-[#f6ecdf]" : ""
+                            }`}
+                          >
+                            {n.actor?.foto_url ? (
+                              <img
+                                src={n.actor.foto_url}
+                                alt=""
+                                className="size-11 shrink-0 rounded-full object-cover"
+                              />
+                            ) : (
+                              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#581f2b] text-[#f7f0e5]">
+                                {esMensaje ? (
+                                  <MessageCircle size={21} />
+                                ) : (
+                                  <HeartHandshake size={21} />
+                                )}
+                              </span>
+                            )}
+
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm leading-5 text-stone-700">
+                                <strong className="text-[#581f2b]">
+                                  {texto.titulo}
+                                </strong>
+                              </span>
+
+                              <span className="mt-1 block text-sm text-stone-600">
+                                {texto.descripcion}
+                              </span>
+
+                              <span className="mt-1 block text-xs text-stone-500">
+                                {new Date(n.created_at).toLocaleString(
+                                  "es-PE",
+                                  {
+                                    day: "2-digit",
+                                    month: "short",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )}
+                              </span>
+                            </span>
+
+                            {abriendo ? (
+                              <LoaderCircle
+                                size={17}
+                                className="mt-2 shrink-0 animate-spin text-[#581f2b]"
+                              />
+                            ) : (
+                              !n.read_at && (
+                                <span
+                                  aria-label="Sin leer"
+                                  className="mt-2 size-2 shrink-0 rounded-full bg-[#b18432]"
+                                />
+                              )
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMostrarNotificaciones(false);
+                      navigate("/matches");
+                    }}
+                    className="w-full px-4 py-3 text-sm font-semibold text-[#581f2b] transition hover:bg-[#f0e4d3]"
+                  >
+                    Ver mis matches
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Favoritos */}
+            <Link
+              to="/favoritos"
+              aria-label="Mis favoritos"
+              title="Mis favoritos"
+              className="grid size-11 shrink-0 place-items-center rounded-full border border-[#e8ddcd] bg-[#fffaf2] text-[#581f2b] transition hover:bg-[#f0e4d3]"
             >
-              {enlace.label}
-            </NavLink>
-          ))}
-        </nav>
+              <Heart size={21} />
+            </Link>
 
-        <div className="flex shrink-0 items-center gap-2">
-          <div className="relative">
+            {/* Avatar: acceso al perfil */}
+            <Link
+              to="/perfil"
+              aria-label="Mi perfil"
+              title="Mi perfil"
+              className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-[#b18432] bg-[#581f2b] text-[#f7f0e5] transition hover:scale-105 hover:shadow-md"
+            >
+              {fotoPerfil ? (
+                <img
+                  src={fotoPerfil}
+                  alt="Mi perfil"
+                  className="size-full object-cover"
+                />
+              ) : (
+                <UserRound size={23} />
+              )}
+            </Link>
+
+            {/* Cerrar sesión */}
             <button
               type="button"
-              onClick={() => {
-                setMostrarNotificaciones((anterior) => !anterior);
-                setErrorNotificaciones("");
-              }}
-              aria-label={`Notificaciones${
-                noLeidas ? `, ${noLeidas} sin leer` : ""
-              }`}
-              aria-expanded={mostrarNotificaciones}
-              className="relative grid size-11 place-items-center rounded-full border border-[#e8ddcd] bg-[#fffaf2] text-[#581f2b] transition hover:bg-[#f0e4d3]"
+              onClick={cerrarSesion}
+              aria-label="Cerrar sesión"
+              title="Cerrar sesión"
+              className="flex size-11 shrink-0 items-center justify-center gap-2 rounded-full border border-[#e8ddcd] bg-[#fffaf2] text-[#581f2b] transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 sm:w-auto sm:px-3"
             >
-              <Bell size={21} />
-
-              {noLeidas > 0 && (
-                <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
-                  {noLeidas > 99 ? "99+" : noLeidas}
-                </span>
-              )}
+              <LogOut size={20} />
+              <span className="hidden text-sm font-medium sm:inline">
+                Cerrar sesión
+              </span>
             </button>
-
-            {mostrarNotificaciones && (
-              <div className="absolute right-0 top-full z-60 mt-3 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-[#e8ddcd] bg-[#fffaf2] shadow-xl">
-                <div className="flex items-center justify-between gap-3 border-b border-[#e8ddcd] px-4 py-3">
-                  <div>
-                    <h2 className="font-serif font-bold text-[#581f2b]">
-                      Notificaciones
-                    </h2>
-                    <p className="text-xs text-stone-500">
-                      {noLeidas > 0
-                        ? `${noLeidas} sin leer`
-                        : "Estás al día"}
-                    </p>
-                  </div>
-
-                  {noLeidas > 0 && (
-                    <button
-                      type="button"
-                      onClick={marcarTodasLeidas}
-                      className="flex items-center gap-1 text-xs font-semibold text-[#581f2b] hover:underline"
-                    >
-                      <Check size={15} />
-                      Marcar leídas
-                    </button>
-                  )}
-                </div>
-
-                {errorNotificaciones && (
-                  <p
-                    role="alert"
-                    className="border-b border-[#eee4d6] bg-red-50 p-3 text-sm text-red-700"
-                  >
-                    {errorNotificaciones}
-                  </p>
-                )}
-
-                {cargandoNotificaciones ? (
-                  <div className="flex items-center justify-center gap-2 p-8 text-sm text-stone-500">
-                    <LoaderCircle size={19} className="animate-spin" />
-                    Cargando...
-                  </div>
-                ) : notificaciones.length === 0 ? (
-                  <div className="px-5 py-8 text-center">
-                    <Bell
-                      size={30}
-                      className="mx-auto text-[#b18432]"
-                    />
-                    <p className="mt-3 font-semibold text-[#581f2b]">
-                      Aún no tienes notificaciones
-                    </p>
-                    <p className="mt-1 text-sm text-stone-500">
-                      Cuando hagas match o recibas un mensaje, te avisaremos
-                      aquí.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="max-h-380px overflow-y-auto">
-                    {notificaciones.map((n) => {
-                      const texto = obtenerTextoNotificacion(n);
-                      const esMensaje = n.type === "message";
-                      const abriendo = abriendoNotificacion === n.id;
-
-                      return (
-                        <button
-                          key={n.id}
-                          type="button"
-                          disabled={abriendo}
-                          onClick={() => abrirNotificacion(n)}
-                          className={`flex w-full items-start gap-3 border-b border-[#eee4d6] px-4 py-4 text-left transition hover:bg-[#f7f0e5] disabled:opacity-60 ${
-                            !n.read_at ? "bg-[#f6ecdf]" : ""
-                          }`}
-                        >
-                          {n.actor?.foto_url ? (
-                            <img
-                              src={n.actor.foto_url}
-                              alt=""
-                              className="size-11 shrink-0 rounded-full object-cover"
-                            />
-                          ) : (
-                            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#581f2b] text-[#f7f0e5]">
-                              {esMensaje ? (
-                                <MessageCircle size={21} />
-                              ) : (
-                                <HeartHandshake size={21} />
-                              )}
-                            </span>
-                          )}
-
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-sm leading-5 text-stone-700">
-                              <strong className="text-[#581f2b]">
-                                {texto.titulo}
-                              </strong>
-                            </span>
-
-                            <span className="mt-1 block text-sm text-stone-600">
-                              {texto.descripcion}
-                            </span>
-
-                            <span className="mt-1 block text-xs text-stone-500">
-                              {new Date(n.created_at).toLocaleString("es-PE", {
-                                day: "2-digit",
-                                month: "short",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </span>
-                          </span>
-
-                          {abriendo ? (
-                            <LoaderCircle
-                              size={17}
-                              className="mt-2 shrink-0 animate-spin text-[#581f2b]"
-                            />
-                          ) : (
-                            !n.read_at && (
-                              <span
-                                aria-label="Sin leer"
-                                className="mt-2 size-2 shrink-0 rounded-full bg-[#b18432]"
-                              />
-                            )
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMostrarNotificaciones(false);
-                    navigate("/matches");
-                  }}
-                  className="w-full px-4 py-3 text-sm font-semibold text-[#581f2b] transition hover:bg-[#f0e4d3]"
-                >
-                  Ver mis matches
-                </button>
-              </div>
-            )}
           </div>
-
-          <Link
-            to="/descubrir"
-            className="flex items-center gap-2 rounded-full bg-[#581f2b] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#71303d]"
-          >
-            <Heart size={16} />
-            <span className="hidden sm:inline">Encontrar pareja</span>
-          </Link>
         </div>
-      </div>
+      </header>
 
-      <nav className="flex justify-around overflow-x-auto border-t border-[#e8ddcd] px-2 py-3 md:hidden">
-        {enlaces.map((enlace) => (
-          <NavLink
-            key={enlace.to}
-            to={enlace.to}
-            end={enlace.end}
-            className={({ isActive }) =>
-              `whitespace-nowrap px-2 text-xs font-medium ${
-                isActive ? "text-[#581f2b]" : "text-stone-500"
-              }`
-            }
-          >
-            {enlace.label}
-          </NavLink>
-        ))}
+      {/* Navegación inferior: fija abajo en móviles */}
+      <nav className="fixed inset-x-0 bottom-0 z-[100] border-t border-[#e8ddcd] bg-[#fffaf2]/95 px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] backdrop-blur md:hidden">
+        <div className="mx-auto flex max-w-md items-center justify-around">
+          {enlacesMoviles.map((enlace) => {
+            const Icono = enlace.icon;
+
+            return (
+              <NavLink
+                key={enlace.to}
+                to={enlace.to}
+                end={enlace.end}
+                className={({ isActive }) =>
+                  `flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors ${
+                    isActive
+                      ? "text-[#581f2b]"
+                      : "text-stone-400 hover:text-[#581f2b]"
+                  }`
+                }
+              >
+                <Icono size={22} strokeWidth={2} />
+
+                <span className="text-[10px] font-medium leading-tight">
+                  {enlace.label}
+                </span>
+              </NavLink>
+            );
+          })}
+        </div>
       </nav>
-    </header>
+    </>
   );
 }
 
