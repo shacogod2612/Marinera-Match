@@ -1,7 +1,14 @@
 
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Heart, Mail, Lock, UserRound } from "lucide-react";
+import {
+  Heart,
+  Mail,
+  Lock,
+  UserRound,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 
 function Auth() {
@@ -9,6 +16,8 @@ function Auth() {
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [mostrarPassword, setMostrarPassword] = useState(false);
+  const [recordarme, setRecordarme] = useState(true);
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState("");
   const navigate = useNavigate();
@@ -91,6 +100,7 @@ function Auth() {
             onClick={() => {
               setModo("registro");
               setMensaje("");
+              setMostrarPassword(false);
             }}
             className={`rounded-lg py-2.5 text-sm font-semibold ${
               modo === "registro"
@@ -106,6 +116,7 @@ function Auth() {
             onClick={() => {
               setModo("login");
               setMensaje("");
+              setMostrarPassword(false);
             }}
             className={`rounded-lg py-2.5 text-sm font-semibold ${
               modo === "login"
@@ -154,9 +165,10 @@ function Auth() {
           <label className="block text-sm font-medium text-stone-700">
             Contraseña
             <span className="mt-2 flex items-center gap-3 rounded-xl border border-[#e4d3bd] bg-white px-3">
-              <Lock size={18} className="text-stone-400" />
+              <Lock size={18} className="shrink-0 text-stone-400" />
+
               <input
-                type="password"
+                type={mostrarPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete={
@@ -167,8 +179,46 @@ function Auth() {
                 className="min-w-0 flex-1 bg-transparent py-3 outline-none"
                 placeholder="Mínimo 6 caracteres"
               />
+
+              <button
+                type="button"
+                onClick={() => setMostrarPassword((anterior) => !anterior)}
+                aria-label={
+                  mostrarPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+                }
+                aria-pressed={mostrarPassword}
+                className="shrink-0 rounded-lg p-1 text-stone-500 transition hover:bg-[#f1e7d8] hover:text-[#581f2b]"
+              >
+                {mostrarPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
             </span>
           </label>
+
+          {modo === "login" && (
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+              <label className="flex cursor-pointer items-center gap-2 text-stone-600">
+                <input
+                  type="checkbox"
+                  checked={recordarme}
+                  onChange={(e) => setRecordarme(e.target.checked)}
+                  className="size-4 accent-[#581f2b]"
+                />
+                Recordarme
+              </label>
+
+              <button
+                type="button"
+                onClick={() =>
+                  navigate("/recuperar-contrasena", {
+                    state: { email },
+                  })
+                }
+                className="font-medium text-[#581f2b] hover:underline"
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            </div>
+          )}
 
           {mensaje && (
             <p
