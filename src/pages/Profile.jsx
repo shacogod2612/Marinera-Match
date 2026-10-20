@@ -9,6 +9,9 @@ import {
   X,
   MapPin,
   Camera,
+  Star,
+  Trash2,
+  Images,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 
@@ -40,37 +43,80 @@ const extensionesImagen = {
   "image/webp": "webp",
 };
 
+const MAX_FOTOS = 6;
+const MAX_TAMANO = 5 * 1024 * 1024;
+
 function Profile() {
   const [perfil, setPerfil] = useState(perfilInicial);
   const [perfilGuardado, setPerfilGuardado] = useState(perfilInicial);
 
   const [fotoUrl, setFotoUrl] = useState("");
-  const [fotoArchivo, setFotoArchivo] = useState(null);
-  const [fotoPreview, setFotoPreview] = useState("");
+  const [fotos, setFotos] = useState([]);
+  const [archivosSeleccionados, setArchivosSeleccionados] = useState([]);
 
   const [existePerfil, setExistePerfil] = useState(false);
   const [editando, setEditando] = useState(true);
   const [cargando, setCargando] = useState(true);
+  const [cargandoFotos, setCargandoFotos] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  const [subiendoFotos, setSubiendoFotos] = useState(false);
   const [usuarioId, setUsuarioId] = useState(null);
+
   const [mensaje, setMensaje] = useState("");
   const [tipoMensaje, setTipoMensaje] = useState("error");
-  const [errorFoto, setErrorFoto] = useState("");
+  const [errorGaleria, setErrorGaleria] = useState("");
 
-  // Genera una vista previa y libera la URL temporal al cambiar la imagen.
-  useEffect(() => {
-    if (!fotoArchivo) {
-      setFotoPreview("");
-      return;
+  // Carga las fotos guardadas en la galería del usuario.
+  async function cargarGaleria(idUsuario, fotoPrincipalActual = "") {
+    setCargandoFotos(true);
+    setErrorGaleria("");
+
+    try {
+      const { data, error } = await supabase
+        .from("profile_photos")
+        .select("id, user_id, foto_url, storage_path, es_principal, created_at")
+        .eq("user_id", idUsuario)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      let galeria = data ?? [];
+
+      // Compatibilidad con perfiles que todavía tengan una foto
+      // guardada en profiles.foto_url pero no en la tabla de galería.
+      if (galeria.length === 0 && fotoPrincipalActual) {
+        galeria = [
+          {
+            id: null,
+            user_id: idUsuario,
+            foto_url: fotoPrincipalActual,
+            storage_path: null,
+            es_principal: true,
+            legado: true,
+          },
+        ];
+      }
+
+      setFotos(galeria);
+
+      const principal = galeria.find((foto) => foto.es_principal);
+      if (principal) {
+        setFotoUrl(principal.foto_url);
+      } else if (galeria.length > 0) {
+        setFotoUrl(galeria[0].foto_url);
+      } else {
+        setFotoUrl("");
+      }
+    } catch (error) {
+      setErrorGaleria(
+        `No se pudo cargar la galería: ${error.message}`
+      );
+    } finally {
+      setCargandoFotos(false);
     }
+  }
 
-    const urlTemporal = URL.createObjectURL(fotoArchivo);
-    setFotoPreview(urlTemporal);
-
-    return () => URL.revokeObjectURL(urlTemporal);
-  }, [fotoArchivo]);
-
-  // Carga el usuario y su perfil guardado.
+  // Carga el usuario y su perfil.
   useEffect(() => {
     let cancelado = false;
 
@@ -108,7 +154,10 @@ function Profile() {
         if (error) {
           setMensaje(`No se pudo cargar tu perfil: ${error.message}`);
           setTipoMensaje("error");
-        } else if (data) {
+          return;
+        }
+
+        if (data) {
           const perfilCargado = {
             nombre: data.nombre ?? "",
             edad: data.edad == null ? "" : String(data.edad),
@@ -126,6 +175,8 @@ function Profile() {
           setExistePerfil(true);
           setEditando(false);
           setMensaje("");
+
+          await cargarGaleria(user.id, data.foto_url ?? "");
         } else {
           setExistePerfil(false);
           setEditando(true);
@@ -133,6 +184,7 @@ function Profile() {
             "Tu perfil todavía no existe. Completa tus datos y guárdalos."
           );
           setTipoMensaje("error");
+          setFotos([]);
         }
       } catch {
         if (!cancelado) {
@@ -160,74 +212,65 @@ function Profile() {
     }));
   }
 
-  function seleccionarFoto(e) {
-    const archivo = e.target.files?.[0];
-
-    // Permite seleccionar otra vez el mismo archivo.
+  function seleccionarFotos(e) {
+    const archivos = Array.from(e.target.files ?? []);
     e.target.value = "";
 
-    if (!archivo) return;
+    if (archivos.length === 0) return;
 
-    setErrorFoto("");
+    setErrorGaleria("");
+    setArchivosSeleccionados([]);
 
-    if (!Object.hasOwn(extensionesImagen, archivo.type)) {
-      setErrorFoto("Elige una imagen JPG, PNG o WebP.");
+    const disponibles = MAX_FOTOS - fotos.length;
+
+    if (disponibles <= 0) {
+      setErrorGaleria(`Puedes tener un máximo de ${MAX_FOTOS} fotos.`);
       return;
     }
 
-    if (archivo.size > 5 * 1024 * 1024) {
-      setErrorFoto("La foto no puede superar los 5 MB.");
+    if (archivos.length > disponibles) {
+      setErrorGaleria(
+        `Solo puedes añadir ${disponibles} foto(s) más. El máximo es ${MAX_FOTOS}.`
+      );
       return;
     }
 
-    setFotoArchivo(archivo);
+    for (const archivo of archivos) {
+      if (!Object.hasOwn(extensionesImagen, archivo.type)) {
+        setErrorGaleria(
+          "Todas las imágenes deben ser JPG, PNG o WebP."
+        );
+        return;
+      }
+
+      if (archivo.size > MAX_TAMANO) {
+        setErrorGaleria(
+          `La imagen "${archivo.name}" supera los 5 MB.`
+        );
+        return;
+      }
+    }
+
+    setArchivosSeleccionados(archivos);
   }
 
   function comenzarEdicion() {
     setPerfil({ ...perfilGuardado });
-    setFotoArchivo(null);
-    setErrorFoto("");
+    setArchivosSeleccionados([]);
     setMensaje("");
     setEditando(true);
   }
 
   function cancelarEdicion() {
     setPerfil({ ...perfilGuardado });
-    setFotoArchivo(null);
-    setErrorFoto("");
+    setArchivosSeleccionados([]);
     setMensaje("");
     setEditando(false);
-  }
-
-  // Sube la imagen y devuelve su URL pública.
-  async function subirFotoPerfil() {
-    if (!fotoArchivo) return fotoUrl;
-
-    const extension = extensionesImagen[fotoArchivo.type];
-    const ruta = `${usuarioId}/${crypto.randomUUID()}.${extension}`;
-
-    const { error: errorSubida } = await supabase.storage
-      .from("fotos-perfil")
-      .upload(ruta, fotoArchivo, {
-        upsert: false,
-        contentType: fotoArchivo.type,
-      });
-
-    if (errorSubida) {
-      throw new Error(`No se pudo subir la foto: ${errorSubida.message}`);
-    }
-
-    const { data } = supabase.storage
-      .from("fotos-perfil")
-      .getPublicUrl(ruta);
-
-    return data.publicUrl;
   }
 
   async function guardarPerfil(e) {
     e.preventDefault();
     setMensaje("");
-    setErrorFoto("");
 
     if (!usuarioId) {
       setMensaje("Inicia sesión antes de guardar tu perfil.");
@@ -255,9 +298,6 @@ function Profile() {
     setGuardando(true);
 
     try {
-      // Si no se eligió otra foto, conserva la URL anterior.
-      const nuevaFotoUrl = await subirFotoPerfil();
-
       const datosPerfil = {
         id: usuarioId,
         nombre: perfil.nombre.trim(),
@@ -268,7 +308,7 @@ function Profile() {
         objetivo: perfil.objetivo || null,
         academia: perfil.academia.trim() || null,
         descripcion: perfil.descripcion.trim() || null,
-        foto_url: nuevaFotoUrl || null,
+        foto_url: fotoUrl || null,
         updated_at: new Date().toISOString(),
       };
 
@@ -294,8 +334,6 @@ function Profile() {
 
       setPerfil(perfilActualizado);
       setPerfilGuardado(perfilActualizado);
-      setFotoUrl(nuevaFotoUrl || "");
-      setFotoArchivo(null);
       setExistePerfil(true);
       setEditando(false);
       setMensaje("¡Tu perfil se guardó correctamente!");
@@ -305,6 +343,256 @@ function Profile() {
       setTipoMensaje("error");
     } finally {
       setGuardando(false);
+    }
+  }
+
+  // Sube las fotos seleccionadas a Storage y registra sus URL en la tabla.
+  async function subirFotos() {
+    if (!usuarioId || archivosSeleccionados.length === 0) return;
+
+    setSubiendoFotos(true);
+    setErrorGaleria("");
+
+    const archivosSubidos = [];
+    let nuevaGaleria = [...fotos];
+
+    try {
+      const { data: filas, error: errorConsulta } = await supabase
+        .from("profile_photos")
+        .select("id")
+        .eq("user_id", usuarioId);
+
+      if (errorConsulta) throw errorConsulta;
+
+      const cantidadActual = filas?.length ?? 0;
+
+      if (cantidadActual + archivosSeleccionados.length > MAX_FOTOS) {
+        throw new Error(`Puedes tener un máximo de ${MAX_FOTOS} fotos.`);
+      }
+
+      let necesitaPrincipal =
+        !nuevaGaleria.some((foto) => foto.es_principal);
+
+      for (const archivo of archivosSeleccionados) {
+        const extension = extensionesImagen[archivo.type];
+        const ruta = `${usuarioId}/${crypto.randomUUID()}.${extension}`;
+
+        const { error: errorSubida } = await supabase.storage
+          .from("fotos-perfil")
+          .upload(ruta, archivo, {
+            upsert: false,
+            contentType: archivo.type,
+          });
+
+        if (errorSubida) {
+          throw new Error(
+            `No se pudo subir "${archivo.name}": ${errorSubida.message}`
+          );
+        }
+
+        const { data: urlData } = supabase.storage
+          .from("fotos-perfil")
+          .getPublicUrl(ruta);
+
+        const esPrincipal = necesitaPrincipal;
+        if (esPrincipal) necesitaPrincipal = false;
+
+        const { data: fotoInsertada, error: errorInsercion } =
+          await supabase
+            .from("profile_photos")
+            .insert({
+              user_id: usuarioId,
+              foto_url: urlData.publicUrl,
+              storage_path: ruta,
+              es_principal: esPrincipal,
+            })
+            .select()
+            .single();
+
+        if (errorInsercion) {
+          // Si falla el registro, intenta limpiar el archivo recién subido.
+          await supabase.storage.from("fotos-perfil").remove([ruta]);
+          throw new Error(
+            `No se pudo registrar la foto: ${errorInsercion.message}`
+          );
+        }
+
+        archivosSubidos.push(ruta);
+        nuevaGaleria.push(fotoInsertada);
+
+        if (esPrincipal) {
+          const { error: errorPerfil } = await supabase
+            .from("profiles")
+            .update({ foto_url: urlData.publicUrl })
+            .eq("id", usuarioId);
+
+          if (errorPerfil) {
+            throw new Error(
+              `La foto se subió, pero no se pudo actualizar la principal: ${errorPerfil.message}`
+            );
+          }
+
+          setFotoUrl(urlData.publicUrl);
+        }
+      }
+
+      setArchivosSeleccionados([]);
+      await cargarGaleria(usuarioId, fotoUrl);
+      setMensaje(
+        `${archivosSubidos.length} foto(s) añadida(s) correctamente.`
+      );
+      setTipoMensaje("exito");
+    } catch (error) {
+      setErrorGaleria(error.message || "No se pudieron subir las fotos.");
+      await cargarGaleria(usuarioId, fotoUrl);
+    } finally {
+      setSubiendoFotos(false);
+    }
+  }
+
+  // Cambia la foto principal y sincroniza profiles.foto_url.
+  async function elegirPrincipal(foto) {
+    if (!foto?.id || foto.es_principal || !usuarioId) return;
+
+    setErrorGaleria("");
+    setMensaje("");
+
+    const principalAnterior = fotos.find((item) => item.es_principal);
+
+    try {
+      // El índice único permite una sola foto principal por usuario.
+      const { error: errorDesmarcar } = await supabase
+        .from("profile_photos")
+        .update({ es_principal: false })
+        .eq("user_id", usuarioId)
+        .eq("es_principal", true);
+
+      if (errorDesmarcar) throw errorDesmarcar;
+
+      const { error: errorMarcar } = await supabase
+        .from("profile_photos")
+        .update({ es_principal: true })
+        .eq("id", foto.id)
+        .eq("user_id", usuarioId);
+
+      if (errorMarcar) {
+        if (principalAnterior?.id) {
+          await supabase
+            .from("profile_photos")
+            .update({ es_principal: true })
+            .eq("id", principalAnterior.id)
+            .eq("user_id", usuarioId);
+        }
+        throw errorMarcar;
+      }
+
+      const { error: errorPerfil } = await supabase
+        .from("profiles")
+        .update({ foto_url: foto.foto_url })
+        .eq("id", usuarioId);
+
+      if (errorPerfil) throw errorPerfil;
+
+      setFotoUrl(foto.foto_url);
+      await cargarGaleria(usuarioId, foto.foto_url);
+      setMensaje("¡Foto principal actualizada!");
+      setTipoMensaje("exito");
+    } catch (error) {
+      setErrorGaleria(
+        `No se pudo cambiar la foto principal: ${error.message}`
+      );
+      await cargarGaleria(usuarioId, fotoUrl);
+    }
+  }
+
+  // Elimina el registro y después intenta borrar el archivo de Storage.
+  async function eliminarFoto(foto) {
+    if (!foto?.id || !usuarioId) return;
+
+    const confirmacion = window.confirm(
+      foto.es_principal
+        ? "Vas a eliminar tu foto principal. ¿Deseas continuar?"
+        : "¿Deseas eliminar esta foto de tu galería?"
+    );
+
+    if (!confirmacion) return;
+
+    setErrorGaleria("");
+    setMensaje("");
+
+    try {
+      const eraPrincipal = foto.es_principal;
+
+      const { error: errorBorrado } = await supabase
+        .from("profile_photos")
+        .delete()
+        .eq("id", foto.id)
+        .eq("user_id", usuarioId);
+
+      if (errorBorrado) throw errorBorrado;
+
+      let galeriaRestante = fotos.filter((item) => item.id !== foto.id);
+
+      if (foto.storage_path) {
+        const { error: errorStorage } = await supabase.storage
+          .from("fotos-perfil")
+          .remove([foto.storage_path]);
+
+        if (errorStorage) {
+          setErrorGaleria(
+            `La foto se quitó de la galería, pero el archivo no se pudo borrar de Storage: ${errorStorage.message}`
+          );
+        }
+      }
+
+      if (eraPrincipal) {
+        const siguiente = galeriaRestante[0];
+
+        if (siguiente?.id) {
+          const { error: errorPrincipal } = await supabase
+            .from("profile_photos")
+            .update({ es_principal: true })
+            .eq("id", siguiente.id)
+            .eq("user_id", usuarioId);
+
+          if (errorPrincipal) throw errorPrincipal;
+
+          const { error: errorPerfil } = await supabase
+            .from("profiles")
+            .update({ foto_url: siguiente.foto_url })
+            .eq("id", usuarioId);
+
+          if (errorPerfil) throw errorPerfil;
+
+          galeriaRestante = galeriaRestante.map((item) => ({
+            ...item,
+            es_principal: item.id === siguiente.id,
+          }));
+
+          setFotoUrl(siguiente.foto_url);
+        } else {
+          const { error: errorPerfil } = await supabase
+            .from("profiles")
+            .update({ foto_url: null })
+            .eq("id", usuarioId);
+
+          if (errorPerfil) throw errorPerfil;
+
+          setFotoUrl("");
+        }
+      }
+
+      setFotos(galeriaRestante);
+
+      if (!errorGaleria) {
+        setMensaje("Foto eliminada de tu galería.");
+        setTipoMensaje("exito");
+      }
+    } catch (error) {
+      setErrorGaleria(
+        `No se pudo eliminar la foto: ${error.message}`
+      );
+      await cargarGaleria(usuarioId, fotoUrl);
     }
   }
 
@@ -324,15 +612,12 @@ function Profile() {
       <main className="min-h-[60vh] bg-[#f7f0e5] px-4 py-16">
         <div className="mx-auto max-w-md rounded-2xl border border-[#e8ddcd] bg-[#fffaf2] p-8 text-center">
           <UserRound size={42} className="mx-auto text-[#b18432]" />
-
           <h1 className="mt-4 font-serif text-3xl font-bold text-[#581f2b]">
             Mi perfil
           </h1>
-
           <p className="mt-3 text-stone-600">
             Necesitas iniciar sesión para crear y editar tu perfil de bailarín.
           </p>
-
           <Link
             to="/acceso"
             className="mt-6 inline-flex rounded-full bg-[#581f2b] px-6 py-3 font-semibold text-white transition hover:bg-[#71303d]"
@@ -344,8 +629,6 @@ function Profile() {
     );
   }
 
-  const fotoVisible = fotoPreview || fotoUrl;
-
   return (
     <main className="min-h-[75vh] bg-[#f7f0e5] px-4 py-12 sm:px-6 sm:py-16">
       <div className="mx-auto max-w-3xl">
@@ -353,11 +636,9 @@ function Profile() {
           <span className="text-xs font-bold tracking-[0.2em] text-[#b18432]">
             TU ESPACIO PERSONAL
           </span>
-
           <h1 className="mt-3 font-serif text-4xl font-bold text-[#581f2b]">
             Mi perfil
           </h1>
-
           <p className="mt-3 leading-7 text-stone-600">
             Cuéntales a otros bailarines quién eres, qué nivel tienes
             y qué buscas en una pareja de marinera.
@@ -398,12 +679,10 @@ function Profile() {
                   <h2 className="wrap-break-words font-serif text-2xl font-bold">
                     {perfil.nombre}
                   </h2>
-
                   <p className="mt-2 flex items-center gap-2 text-sm text-white/80">
                     <MapPin size={16} />
                     {perfil.ciudad || "Ciudad no especificada"}
                   </p>
-
                   {perfil.nivel && (
                     <span className="mt-3 inline-block rounded-full bg-[#d6a64f]/20 px-3 py-1 text-sm text-[#f3d99c]">
                       {perfil.nivel}
@@ -422,7 +701,7 @@ function Profile() {
                 {camposPerfil.map(({ clave, etiqueta }) => (
                   <div key={clave}>
                     <dt className="text-sm text-stone-500">{etiqueta}</dt>
-                    <dd className="mt-1 -wrap-break-words font-medium text-stone-800">
+                    <dd className="mt-1 font-medium text-stone-800">
                       {perfil[clave] || "No especificado"}
                     </dd>
                   </div>
@@ -443,7 +722,7 @@ function Profile() {
                 className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#581f2b] px-6 py-3 font-semibold text-white transition hover:bg-[#71303d] sm:w-auto"
               >
                 <Pencil size={18} />
-                Editar perfil
+                Editar perfil y galería
               </button>
             </div>
           </section>
@@ -456,66 +735,172 @@ function Profile() {
               <div className="grid size-12 place-items-center rounded-xl bg-[#581f2b] text-[#d6a64f]">
                 <UserRound size={25} />
               </div>
-
               <div>
                 <h2 className="font-serif text-xl font-bold text-[#581f2b]">
                   {existePerfil ? "Editar mi perfil" : "Información del bailarín"}
                 </h2>
                 <p className="text-sm text-stone-500">
-                  Completa tus datos personales y de baile.
+                  Completa tus datos y administra tus fotos.
                 </p>
               </div>
             </div>
 
-            {/* Foto de perfil */}
-            <div className="mb-8 flex flex-col items-center">
-              <div className="grid size-32 place-items-center overflow-hidden rounded-full border-4 border-[#e8ddcd] bg-[#f7f0e5] text-[#b18432]">
-                {fotoVisible ? (
-                  <img
-                    src={fotoVisible}
-                    alt="Vista previa de tu foto de perfil"
-                    className="size-full object-cover"
-                  />
-                ) : (
-                  <UserRound size={58} />
-                )}
+            {/* Galería de fotos */}
+            <section className="mb-8 rounded-2xl border border-[#e8ddcd] bg-white p-4 sm:p-5">
+              <div className="flex items-center gap-2">
+                <Images size={21} className="text-[#b18432]" />
+                <h3 className="font-serif text-xl font-bold text-[#581f2b]">
+                  Mi galería
+                </h3>
               </div>
 
-              <label className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-full border border-[#e4d3bd] bg-white px-5 py-2.5 font-semibold text-[#581f2b] transition hover:bg-[#f7f0e5]">
+              <p className="mt-2 text-sm leading-6 text-stone-600">
+                Añade hasta {MAX_FOTOS} fotos. La foto principal será la que
+                aparezca en tu tarjeta de Descubrir.
+              </p>
+
+              {cargandoFotos ? (
+                <p className="mt-4 flex items-center gap-2 text-sm text-stone-500">
+                  <LoaderCircle size={18} className="animate-spin" />
+                  Cargando fotos...
+                </p>
+              ) : (
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {fotos.map((foto) => (
+                    <article
+                      key={foto.id ?? foto.foto_url}
+                      className="overflow-hidden rounded-xl border border-[#e8ddcd] bg-[#fffaf2]"
+                    >
+                      <div className="relative aspect-3/4 bg-[#f7f0e5]">
+                        <img
+                          src={foto.foto_url}
+                          alt={
+                            foto.es_principal
+                              ? "Foto principal de tu perfil"
+                              : "Foto de tu galería"
+                          }
+                          className="size-full object-cover"
+                        />
+
+                        {foto.es_principal && (
+                          <span className="absolute left-2 top-2 rounded-full bg-[#581f2b] px-2 py-1 text-xs font-semibold text-white">
+                            Principal
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid gap-2 p-2">
+                        {!foto.es_principal && foto.id && (
+                          <button
+                            type="button"
+                            onClick={() => elegirPrincipal(foto)}
+                            disabled={subiendoFotos || guardando}
+                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-[#e4d3bd] px-2 py-2 text-xs font-semibold text-[#581f2b] hover:bg-[#f7f0e5] disabled:opacity-50"
+                          >
+                            <Star size={14} />
+                            Hacer principal
+                          </button>
+                        )}
+
+                        {foto.id && (
+                          <button
+                            type="button"
+                            onClick={() => eliminarFoto(foto)}
+                            disabled={subiendoFotos || guardando}
+                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-red-200 px-2 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            <Trash2 size={14} />
+                            Eliminar
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+
+                  {fotos.length === 0 && (
+                    <div className="col-span-full rounded-xl border border-dashed border-[#e4d3bd] px-4 py-8 text-center">
+                      <Camera size={32} className="mx-auto text-[#b18432]" />
+                      <p className="mt-2 text-sm text-stone-600">
+                        Todavía no tienes fotos. ¡Añade la primera!
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <label className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-full border border-[#e4d3bd] bg-[#fffaf2] px-5 py-3 font-semibold text-[#581f2b] transition hover:bg-[#f7f0e5]">
                 <Camera size={18} />
-                {fotoArchivo ? "Cambiar selección" : "Elegir foto"}
+                Seleccionar fotos
 
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
-                  onChange={seleccionarFoto}
-                  disabled={guardando}
+                  multiple
+                  onChange={seleccionarFotos}
+                  disabled={
+                    subiendoFotos ||
+                    guardando ||
+                    fotos.length >= MAX_FOTOS
+                  }
                   className="sr-only"
                 />
               </label>
 
               <p className="mt-2 text-xs text-stone-500">
-                JPG, PNG o WebP · Máximo 5 MB
+                JPG, PNG o WebP · Máximo 5 MB por foto ·
+                {` ${fotos.length}/${MAX_FOTOS} fotos`}
               </p>
 
-              {fotoArchivo && (
-                <button
-                  type="button"
-                  onClick={() => setFotoArchivo(null)}
-                  disabled={guardando}
-                  className="mt-2 text-sm text-[#581f2b] underline"
-                >
-                  Descartar nueva foto
-                </button>
+              {archivosSeleccionados.length > 0 && (
+                <div className="mt-3 rounded-xl bg-[#f7f0e5] p-3">
+                  <p className="text-sm font-semibold text-[#581f2b]">
+                    {archivosSeleccionados.length} foto(s) seleccionada(s)
+                  </p>
+
+                  <ul className="mt-2 space-y-1 text-sm text-stone-600">
+                    {archivosSeleccionados.map((archivo) => (
+                      <li key={`${archivo.name}-${archivo.size}`}>
+                        {archivo.name}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={subirFotos}
+                      disabled={subiendoFotos}
+                      className="inline-flex items-center gap-2 rounded-full bg-[#581f2b] px-4 py-2 font-semibold text-white disabled:opacity-50"
+                    >
+                      {subiendoFotos ? (
+                        <LoaderCircle size={17} className="animate-spin" />
+                      ) : (
+                        <Camera size={17} />
+                      )}
+                      {subiendoFotos ? "Subiendo..." : "Subir a mi galería"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setArchivosSeleccionados([])}
+                      disabled={subiendoFotos}
+                      className="inline-flex items-center gap-2 rounded-full border border-[#e4d3bd] px-4 py-2 font-semibold text-[#581f2b] disabled:opacity-50"
+                    >
+                      <X size={17} />
+                      Cancelar selección
+                    </button>
+                  </div>
+                </div>
               )}
 
-              {errorFoto && (
-                <p role="alert" className="mt-2 text-sm text-red-700">
-                  {errorFoto}
+              {errorGaleria && (
+                <p role="alert" className="mt-3 text-sm text-red-700">
+                  {errorGaleria}
                 </p>
               )}
-            </div>
+            </section>
 
+            {/* Datos personales */}
             <div className="grid gap-5 sm:grid-cols-2">
               <label className="block text-sm font-medium text-stone-700">
                 Nombre *
@@ -637,7 +1022,7 @@ function Profile() {
                 <button
                   type="button"
                   onClick={cancelarEdicion}
-                  disabled={guardando}
+                  disabled={guardando || subiendoFotos}
                   className="inline-flex items-center justify-center gap-2 rounded-full border border-[#e4d3bd] px-6 py-3 font-semibold text-[#581f2b] transition hover:bg-[#f7f0e5] disabled:opacity-60"
                 >
                   <X size={18} />
@@ -647,7 +1032,7 @@ function Profile() {
 
               <button
                 type="submit"
-                disabled={guardando}
+                disabled={guardando || subiendoFotos}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-[#581f2b] px-6 py-3 font-semibold text-white transition hover:bg-[#71303d] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {guardando ? (
