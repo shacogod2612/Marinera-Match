@@ -188,7 +188,13 @@ function Chat() {
       .single();
 
     if (envioError) {
-      setError("No se pudo enviar el mensaje. Inténtalo nuevamente.");
+      console.error("Error completo de Supabase:", envioError);
+
+      setError(
+        `${envioError.code ?? "ERROR"}: ${envioError.message}` +
+        (envioError.details ? ` | Detalles: ${envioError.details}` : "") +
+        (envioError.hint ? ` | Sugerencia: ${envioError.hint}` : "")
+      );
     } else {
       setMensaje("");
 

@@ -53,7 +53,7 @@ function Navbar({ fotoPerfil, setFotoPerfil }) {
 
   const noLeidas = notificaciones.filter((n) => !n.read_at).length;
 
-  // Cerrar sesión de Supabase y volver a la página de acceso.
+  // Cerrar sesión de Supabase y volver a la página de inicio.
   async function cerrarSesion() {
     const { error } = await supabase.auth.signOut();
 
@@ -65,12 +65,7 @@ function Navbar({ fotoPerfil, setFotoPerfil }) {
       return;
     }
 
-    setMostrarNotificaciones(false);
-    setNotificaciones([]);
-    setUsuarioId(null);
-    setFotoPerfil(null);
-
-    navigate("/login", { replace: true });
+    navigate("/", { replace: true });
   }
 
   // Cargar la foto del perfil del usuario autenticado.
@@ -354,10 +349,10 @@ function Navbar({ fotoPerfil, setFotoPerfil }) {
           {/* Logo */}
           <Link to="/" className="flex shrink-0 items-center gap-3">
             <span className="grid size-11 place-items-center rounded-xl bg-[#581f2b] font-serif text-lg font-bold text-[#d6a64f]">
-              EP
+              Mm
             </span>
 
-            <span className="font-serif text-lg font-bold text-[#581f2b] sm:text-xl">
+            <span className="hidden font-serif text-lg font-bold text-[#581f2b] sm:inline sm:text-xl">
               Marinera Match
             </span>
           </Link>
@@ -409,7 +404,7 @@ function Navbar({ fotoPerfil, setFotoPerfil }) {
 
               {/* Panel de notificaciones */}
               {mostrarNotificaciones && (
-                <div className="absolute right-0 top-full z-[60] mt-3 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-[#e8ddcd] bg-[#fffaf2] shadow-xl">
+                <div className="fixed left-3 right-3 top-20 z-[110] flex max-h-[calc(100dvh-7rem)] flex-col overflow-hidden rounded-2xl border border-[#e8ddcd] bg-[#fffaf2] shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-3 sm:flex sm:max-h-[min(480px,calc(100dvh-7rem))] sm:w-[min(380px,calc(100vw-2rem))]">
                   <div className="flex items-center justify-between gap-3 border-b border-[#e8ddcd] px-4 py-3">
                     <div>
                       <h2 className="font-serif font-bold text-[#581f2b]">
@@ -462,7 +457,7 @@ function Navbar({ fotoPerfil, setFotoPerfil }) {
                       </p>
                     </div>
                   ) : (
-                    <div className="max-h-[380px] overflow-y-auto">
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                       {notificaciones.map((n) => {
                         const texto = obtenerTextoNotificacion(n);
                         const esMensaje = n.type === "message";
@@ -474,7 +469,7 @@ function Navbar({ fotoPerfil, setFotoPerfil }) {
                             type="button"
                             disabled={abriendo}
                             onClick={() => abrirNotificacion(n)}
-                            className={`flex w-full items-start gap-3 border-b border-[#eee4d6] px-4 py-4 text-left transition hover:bg-[#f7f0e5] disabled:opacity-60 ${
+                            className={`flex w-full min-w-0 items-start gap-2 border-b border-[#eee4d6] px-3 py-3 text-left transition hover:bg-[#f7f0e5] disabled:opacity-60 sm:gap-3 sm:px-4 sm:py-4 ${
                               !n.read_at ? "bg-[#f6ecdf]" : ""
                             }`}
                           >
@@ -494,7 +489,7 @@ function Navbar({ fotoPerfil, setFotoPerfil }) {
                               </span>
                             )}
 
-                            <span className="min-w-0 flex-1">
+                            <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">
                               <span className="block text-sm leading-5 text-stone-700">
                                 <strong className="text-[#581f2b]">
                                   {texto.titulo}

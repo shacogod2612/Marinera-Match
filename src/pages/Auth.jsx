@@ -9,7 +9,11 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { supabase } from "../lib/supabaseClient";
+import {
+  supabase,
+  configurarRecordarme,
+  obtenerPreferenciaRecordarme,
+} from "../lib/supabaseClient";
 
 function Auth() {
   const [modo, setModo] = useState("registro");
@@ -17,7 +21,9 @@ function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mostrarPassword, setMostrarPassword] = useState(false);
-  const [recordarme, setRecordarme] = useState(true);
+  const [recordarme, setRecordarme] = useState(
+    obtenerPreferenciaRecordarme
+  );
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState("");
   const navigate = useNavigate();
@@ -59,15 +65,17 @@ function Auth() {
           setModo("login");
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+          configurarRecordarme(recordarme);
 
-        if (error) throw error;
+          const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
 
-        navigate("/perfil");
-      }
+          if (error) throw error;
+
+          navigate("/perfil");
+        }
     } catch (error) {
       setMensaje(error.message || "No se pudo completar la operación.");
     } finally {
