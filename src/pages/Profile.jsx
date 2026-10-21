@@ -12,6 +12,12 @@ import {
   Star,
   Trash2,
   Images,
+  CalendarDays,
+  VenusAndMars,
+  Trophy,
+  Target,
+  Building2,
+  FileText,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 
@@ -30,11 +36,11 @@ const clasesInput =
   "mt-2 w-full rounded-xl border border-[#e4d3bd] bg-white px-4 py-3 text-sm text-[#242321] outline-none transition focus:border-[#581f2b] focus:ring-2 focus:ring-[#581f2b]/10";
 
 const camposPerfil = [
-  { clave: "edad", etiqueta: "Edad" },
-  { clave: "sexo", etiqueta: "Sexo" },
-  { clave: "nivel", etiqueta: "Nivel de marinera" },
-  { clave: "objetivo", etiqueta: "Qué busca" },
-  { clave: "academia", etiqueta: "Academia" },
+  { clave: "edad", etiqueta: "Edad", Icono: CalendarDays },
+  { clave: "sexo", etiqueta: "Sexo", Icono: VenusAndMars },
+  { clave: "nivel", etiqueta: "Nivel de marinera", Icono: Trophy },
+  { clave: "objetivo", etiqueta: "Qué busca", Icono: Target },
+  { clave: "academia", etiqueta: "Academia", Icono: Building2 },
 ];
 
 const extensionesImagen = {
@@ -65,6 +71,69 @@ function Profile({ onFotoPerfilChange }) {
   const [mensaje, setMensaje] = useState("");
   const [tipoMensaje, setTipoMensaje] = useState("error");
   const [errorGaleria, setErrorGaleria] = useState("");
+  const [distritosPeru, setDistritosPeru] = useState([]);
+  const [cargandoDistritos, setCargandoDistritos] = useState(true);
+  const [errorDistritos, setErrorDistritos] = useState("");
+
+  // Carga los ubigeos y arma sugerencias con distrito, provincia y departamento.
+  useEffect(() => {
+    const urls = {
+      departamentos:
+        "https://raw.githubusercontent.com/RitchieRD/ubigeos-peru-data/main/json/1_ubigeo_departamentos.json",
+      provincias:
+        "https://raw.githubusercontent.com/RitchieRD/ubigeos-peru-data/main/json/2_ubigeo_provincias.json",
+      distritos:
+        "https://raw.githubusercontent.com/RitchieRD/ubigeos-peru-data/main/json/3_ubigeo_distritos.json",
+    };
+
+    async function cargarDistritosPeru() {
+      try {
+        const respuestas = await Promise.all(
+          Object.values(urls).map((url) => fetch(url))
+        );
+        if (respuestas.some((respuesta) => !respuesta.ok)) {
+          throw new Error("No se pudo descargar la lista de ubicaciones.");
+        }
+
+        const [departamentosJson, provinciasJson, distritosJson] =
+          await Promise.all(respuestas.map((respuesta) => respuesta.json()));
+
+        const departamentosPorId = new Map(
+          departamentosJson.ubigeo_departamentos.map((item) => [item.id, item])
+        );
+        const provinciasPorId = new Map(
+          provinciasJson.ubigeo_provincias.map((item) => [item.id, item])
+        );
+
+        const opciones = distritosJson.ubigeo_distritos
+          .map((distrito) => {
+            const provincia = provinciasPorId.get(distrito.provincia_id);
+            const departamento = provincia
+              ? departamentosPorId.get(provincia.departamento_id)
+              : null;
+
+            if (!provincia || !departamento) return null;
+
+            return {
+              ubigeo: distrito.ubigeo,
+              nombre: `${distrito.distrito}, ${provincia.provincia}, ${departamento.departamento}`,
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+
+        setDistritosPeru(opciones);
+      } catch (error) {
+        setErrorDistritos(
+          error.message || "No se pudo cargar la lista de distritos."
+        );
+      } finally {
+        setCargandoDistritos(false);
+      }
+    }
+
+    cargarDistritosPeru();
+  }, []);
 
   // Carga las fotos guardadas en la galería del usuario.
   async function cargarGaleria(idUsuario, fotoPrincipalActual = "") {
@@ -704,9 +773,12 @@ function Profile({ onFotoPerfilChange }) {
               </h3>
 
               <dl className="mt-5 grid gap-5 sm:grid-cols-2">
-                {camposPerfil.map(({ clave, etiqueta }) => (
+                {camposPerfil.map(({ clave, etiqueta, Icono }) => (
                   <div key={clave}>
-                    <dt className="text-sm text-stone-500">{etiqueta}</dt>
+                    <dt className="flex items-center gap-2 text-sm text-stone-500">
+                      <Icono size={16} className="text-[#b18432]" aria-hidden="true" />
+                      {etiqueta}
+                    </dt>
                     <dd className="mt-1 font-medium text-stone-800">
                       {perfil[clave] || "No especificado"}
                     </dd>
@@ -909,7 +981,10 @@ function Profile({ onFotoPerfilChange }) {
             {/* Datos personales */}
             <div className="grid gap-5 sm:grid-cols-2">
               <label className="block text-sm font-medium text-stone-700">
-                Nombre *
+                <span className="inline-flex items-center gap-2">
+                  <UserRound size={16} className="text-[#b18432]" aria-hidden="true" />
+                  Nombre *
+                </span>
                 <input
                   name="nombre"
                   value={perfil.nombre}
@@ -923,7 +998,10 @@ function Profile({ onFotoPerfilChange }) {
               </label>
 
               <label className="block text-sm font-medium text-stone-700">
-                Edad
+                <span className="inline-flex items-center gap-2">
+                  <CalendarDays size={16} className="text-[#b18432]" aria-hidden="true" />
+                  Edad
+                </span>
                 <input
                   name="edad"
                   type="number"
@@ -938,7 +1016,10 @@ function Profile({ onFotoPerfilChange }) {
               </label>
 
               <label className="block text-sm font-medium text-stone-700">
-                Sexo
+                <span className="inline-flex items-center gap-2">
+                  <VenusAndMars size={16} className="text-[#b18432]" aria-hidden="true" />
+                  Sexo
+                </span>
                 <select
                   name="sexo"
                   value={perfil.sexo}
@@ -953,19 +1034,44 @@ function Profile({ onFotoPerfilChange }) {
               </label>
 
               <label className="block text-sm font-medium text-stone-700">
-                Ciudad
+                <span className="inline-flex items-center gap-2">
+                  <MapPin size={16} className="text-[#b18432]" aria-hidden="true" />
+                  Distrito / ciudad
+                </span>
                 <input
                   name="ciudad"
+                  list="distritos-peru"
                   value={perfil.ciudad}
                   onChange={actualizarCampo}
-                  maxLength={100}
+                  maxLength={200}
                   className={clasesInput}
-                  placeholder="Ej. Lima"
+                  placeholder={
+                    cargandoDistritos
+                      ? "Cargando distritos del Perú..."
+                      : "Escribe para buscar tu distrito"
+                  }
+                  autoComplete="address-level3"
                 />
+                <datalist id="distritos-peru">
+                  {distritosPeru.map((distrito) => (
+                    <option key={distrito.ubigeo} value={distrito.nombre} />
+                  ))}
+                </datalist>
+                <span className="mt-1 block text-xs text-stone-500">
+                  Busca por nombre. Se mostrará el distrito, la provincia y el departamento.
+                </span>
+                {errorDistritos && (
+                  <span role="status" className="mt-1 block text-xs text-amber-700">
+                    No se pudo cargar la lista automática. Puedes escribir tu ciudad manualmente.
+                  </span>
+                )}
               </label>
 
               <label className="block text-sm font-medium text-stone-700">
-                Nivel de marinera
+                <span className="inline-flex items-center gap-2">
+                  <Trophy size={16} className="text-[#b18432]" aria-hidden="true" />
+                  Nivel de marinera
+                </span>
                 <select
                   name="nivel"
                   value={perfil.nivel}
@@ -980,7 +1086,10 @@ function Profile({ onFotoPerfilChange }) {
               </label>
 
               <label className="block text-sm font-medium text-stone-700">
-                ¿Qué buscas?
+                <span className="inline-flex items-center gap-2">
+                  <Target size={16} className="text-[#b18432]" aria-hidden="true" />
+                  ¿Qué buscas?
+                </span>
                 <select
                   name="objetivo"
                   value={perfil.objetivo}
@@ -995,7 +1104,10 @@ function Profile({ onFotoPerfilChange }) {
               </label>
 
               <label className="block text-sm font-medium text-stone-700 sm:col-span-2">
-                Academia
+                <span className="inline-flex items-center gap-2">
+                  <Building2 size={16} className="text-[#b18432]" aria-hidden="true" />
+                  Academia
+                </span>
                 <input
                   name="academia"
                   value={perfil.academia}
@@ -1007,7 +1119,10 @@ function Profile({ onFotoPerfilChange }) {
               </label>
 
               <label className="block text-sm font-medium text-stone-700 sm:col-span-2">
-                Sobre mí
+                <span className="inline-flex items-center gap-2">
+                  <FileText size={16} className="text-[#b18432]" aria-hidden="true" />
+                  Sobre mí
+                </span>
                 <textarea
                   name="descripcion"
                   value={perfil.descripcion}

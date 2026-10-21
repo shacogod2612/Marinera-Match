@@ -65,6 +65,61 @@ function Discover({ likes, setLikes }) {
 
       setAutenticado(true);
 
+      // Recuperar los likes que este usuario ya guardó en Supabase.
+      // Así el estado de React se sincroniza al entrar o recargar la página.
+      const { data: likesDB, error: errorLikes } = await supabase
+        .from("likes")
+        .select("liked_user_id")
+        .eq("user_id", user.id);
+
+      if (cancelado) return;
+
+      if (errorLikes) {
+        setErrorCarga(
+          `No se pudieron cargar tus likes: ${errorLikes.message}`
+        );
+        setBailarines([]);
+        setCargando(false);
+        return;
+      }
+
+      
+      const idsLikesEnviados = (likesDB ?? []).map(
+        (like) => like.liked_user_id
+      );
+
+      // Un match existe si enviamos un like y la otra persona
+      // también nos dio like.
+      let idsMatches = [];
+
+      if (idsLikesEnviados.length > 0) {
+        const { data: likesMutuos, error: errorMatches } = await supabase
+          .from("likes")
+          .select("user_id")
+          .in("user_id", idsLikesEnviados)
+          .eq("liked_user_id", user.id);
+
+        if (cancelado) return;
+
+        if (errorMatches) {
+          setErrorCarga(
+            `No se pudieron comprobar tus matches: ${errorMatches.message}`
+          );
+          setBailarines([]);
+          setCargando(false);
+          return;
+        }
+
+        idsMatches = (likesMutuos ?? []).map(
+          (like) => like.user_id
+        );
+      }
+
+      setLikes((likesActuales) => [
+        ...new Set([...likesActuales, ...idsLikesEnviados]),
+      ]);
+
+
       const { data: perfilesDB, error: errorPerfiles } =
         await supabase
           .from("profiles")
@@ -85,7 +140,9 @@ function Discover({ likes, setLikes }) {
         return;
       }
 
-      const perfiles = perfilesDB ?? [];
+      const perfiles = (perfilesDB ?? []).filter(
+        (perfil) => !idsMatches.includes(perfil.id)
+      );
 
       if (perfiles.length === 0) {
         setBailarines([]);
